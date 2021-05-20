@@ -1,0 +1,143 @@
+---
+title: "Summary of Arizona FIA cores"
+author: "Kelly Heilman"
+date: "5/20/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+## FIA cores
+This is a summary of the Arizona FIA cores measured at the Laboratory of Tree Ring Research by the Evans lab. Specifically, the goal is to report how many of cores are measured total in our FIA - cores database for AZ, and how many are verified or cross-dated in COFECHA. 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(kableExtra)
+```
+
+```{r echo = FALSE}
+# first read in the "Batch 1" data that Justin submitted to USFS back in 2017
+batch1.rwl <- read.delim( "data/ArizonaPeridiocRingWidth-Batch1.txt", sep = ",")
+batch1.meta <- read.delim( "data/ArizonaPeriodicTreeRingMetadata-Batch1.txt", sep= "," )                      
+ 
+
+# read in the .csv downloaded from the Evans lab google document drive as of 5/20/21
+FIA.az <- read.csv("data/FIA_meta_all - FIA_meta_all.csv")
+unique(FIA.az$SPCD)
+#summary(FIA.az)
+
+
+
+# find all the records that have complete metadata (C) and pass QC (QC)
+# summaries 
+#FIA.az %>% filter(STATUS %in% c("CQC", "IQC")) %>% summarise(n())
+tot.records <- FIA.az %>% summarise(n())
+
+
+FIA.az$crossdated <- ifelse(FIA.az$VERIFY %in% "y", "yes", 
+                            ifelse(FIA.az$STATUS %in% c("CQC", "IQC"), "yes", "no"))
+
+FIA.cross.dated.by.spec <- FIA.az %>% filter(crossdated %in% "yes") %>% group_by(SPCD)%>% summarise(n())
+FIA.cross.dated.by.spec$Species <- c("*Pinus edulis*", "*Pinus ponderosa*", "*Pseudotsuga menziesii*")
+colnames(FIA.cross.dated.by.spec)[2] <- "number"
+
+# find total crossdated
+FIA.cross.dated <- FIA.az %>% filter(crossdated %in% "yes") %>%  summarise(n())
+
+```
+
+As of May 20th, 2021, there are a total of `r as.numeric(tot.records)`, and `r as.numeric(FIA.cross.dated)` of these are crossdated in COFECHA. See Table 1 for the number of AZ cores crossdated by species. 
+
+
+
+```{r echo = FALSE}
+# not a real column that we want...but I think thise should replace the Verify column
+
+
+
+Table2 <- kable(data.frame(FIA.cross.dated.by.spec[,c("Species", "SPCD", "number")]) , "latex", align = c("l", "c", "c"), booktabs = TRUE,caption = "Number of AZ FIA cores crossdated by species", digits = 3, linesep = "") %>% kable_styling(position = "center")#%>% column_spec(1:2, width = "2cm")
+Table2
+```
+
+
+
+```{r, echo = FALSE}
+# check which of these cores were not included in "batch 1"
+# join using "TREE","PLOT", "SUBP", "COUNTYCD", "STATECD"
+batch1.meta$TREE <- as.character(batch1.meta$TREE)
+batch1.meta$PLOT <- as.character(batch1.meta$PLOT)
+batch1.meta$SUBP <- as.character(batch1.meta$SUBP)
+batch1.meta$STATECD <- as.character(batch1.meta$STATECD)
+
+FIA.az$TREE <- as.character(FIA.az$TREE)
+FIA.az$PLOT <- as.character(FIA.az$PLOT)
+FIA.az$SUBP <- as.character(FIA.az$SUBP)
+FIA.az$STATECD <- as.character(FIA.az$STATECD)
+
+# create a single identifier that includes TREE, SUBP, PLOT, COUNTYCD, STATECD:
+FIA.az$id <- paste0(FIA.az$TREE, "-", FIA.az$SUBP, "-", FIA.az$PLOT, "-", FIA.az$COUNTYCD, "-", FIA.az$STATECD, "-", FIA.az$SPCD )
+batch1.meta$id <- paste0(batch1.meta$TREE, "-", batch1.meta$SUBP, "-", batch1.meta$PLOT, "-", batch1.meta$COUNTYCD, "-", batch1.meta$STATECD, "-", batch1.meta$SPCD )
+
+# find the number of records that match ids in batch 1
+FIA.az <- FIA.az %>% filter(!PLOT %in% NA)
+n.FIA <- FIA.az %>% summarise(n()) # total with no NA in plots = 2042
+nFIA.cores.in.b1 <- FIA.az %>% filter(id %in% batch1.meta$id) %>% summarise(n())
+n.b1 <- batch1.meta %>% summarise(n())
+n.FIA.xdate <- FIA.az %>% filter(!id %in% batch1.meta$id)%>% filter(crossdated %in% "yes") %>% summarise(n()) # total with no NA in plots = 2042
+
+
+n.new.cores <- n.FIA - nFIA.cores.in.b1 
+
+# n() =  1371 of the records in FIA-cores metadata sheet were included in batch 1
+nFIA.cores.in.b1.spcd <- FIA.az %>% filter(id %in% batch1.meta$id) %>% group_by(SPCD) %>% summarise(n())
+# SPCD `n()`
+# <int> <int>
+# 1   106   350
+# 2   122   873
+# 3   202   148
+
+
+# so that leaves a number of cores that are not in batch 1:
+#FIA.az %>% filter(!id %in% batch1.meta$id)%>% summarise(n())
+# n()
+# 1 671
+nFIA.new.cores.spcd <-FIA.az %>% filter(!id %in% batch1.meta$id) %>% group_by(SPCD) %>% summarise(n())
+# SPCD `n()`
+# <int> <int>
+# 1   106   582
+# 2   122    80
+# 3   202     9
+
+nFIA.new.cores.spcd$Species <- c("*Pinus edulis*", "*Pinus ponderosa*", "*Pseudotsuga menziesii*")
+colnames(nFIA.new.cores.spcd)[2] <- "number"
+
+kable(data.frame(nFIA.new.cores.spcd[,c("Species", "SPCD", "number")]) , "latex", align = c("l", "c", "c"), booktabs = TRUE,caption = "Number of new AZ FIA cores by species", digits = 3, linesep = "") %>% kable_styling(position = "center")#%>% column_spec(1:2, width = "2cm")
+```
+## Additional cores measured since 2017
+We compare the the FIA - cores metadata pulled from our googledrive 5/20/21 to the "Batch 1" set of cores from Arizona compiled by Justin DeRose and Stefan back in 2017. As of May 20th, 2021, there are a total of `r as.numeric(n.new.cores)` that are not in the "Batch 1" datasest, and `r as.numeric(n.FIA.xdate)` of these are crossdated in COFECHA. See Table 2 for the number of new cores by species.
+
+
+
+
+```{r, echo = FALSE}
+batch1.meta <- batch1.meta %>% filter(!PLOT %in% NA)
+#batch1.meta %>% filter(id %in% FIA.az$id) %>% summarise(n())
+# of the 1364 cores included in batch1.metadata, 1371 have ids matching ids in FIA database...so some are duplicates?
+
+# none of the records are 100% duplicates
+#View(FIA.az[duplicated(FIA.az$id),])
+#batch1.meta[duplicated(batch1.meta)]
+
+# there are about 10 duplicates
+tot <- length(FIA.az$id)
+tot.unique <- length(unique(FIA.az$id))
+
+
+n.dups <- tot-tot.unique
+#FIA.az[duplicated(FIA.az$id),]
+```
+## Duplicates?
+Digging further into the FIA cores metadata sheet, there appear to be `r as.numeric(n.dups)` a  of core metadata records with some of the data (namely, TREE, PLOT, SUBP, COUNTYCD, STATECD) duplicated. Some of these state this in the Notes columns, but a few are are not. We need to figure out what to do with these records...
+
+## Additional species??
+The current metadata only has PIPO, PIED, and PSME, but we know for sure that other cores were measured...we need to make sure the metadata is in the dataset. 
