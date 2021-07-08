@@ -16,7 +16,8 @@ summary(FIA.az)
 
 # find all the records that have complete metadata (C) and pass QC (QC)
 # summaries 
-FIA.az %>% filter(STATUS %in% c("CQC", "IQC")) %>% summarise(n())
+FIA.az %>% filter(STATUS %in% c("CQC", "IQC"))  %>% group_by(STATUS, SPCD) %>% summarise(n())
+FIA.az %>%  group_by(STATUS, SPCD) %>% summarise(n())
 FIA.az %>% summarise(n())
 
 # not a real column that we want...but I think thise should replace the Verify column
@@ -25,6 +26,7 @@ FIA.az$crossdated <- ifelse(FIA.az$VERIFY %in% "y", "yes",
 
 FIA.az %>% filter(crossdated %in% "yes") %>% group_by(SPCD)%>% summarise(n())
 
+FIA.az %>% filter(crossdated %in% "yes") %>% group_by(COUNTYCD, SPCD)%>% summarise(n())
 
 # check which of these cores were not included in "batch 1"
 # join using "TREE","PLOT", "SUBP", "COUNTYCD", "STATECD"
@@ -66,6 +68,8 @@ FIA.az %>% filter(!id %in% batch1.meta$id) %>% group_by(SPCD) %>% summarise(n())
 # 2   122    80
 # 3   202     9
 
+FIA.az %>% filter(!id %in% batch1.meta$id) %>% group_by(SPCD, STATUS) %>% summarise(n())
+
 batch1.meta <- batch1.meta %>% filter(!PLOT %in% NA)
 batch1.meta %>% filter(id %in% FIA.az$id) %>% summarise(n())
 # of the 1364 cores included in batch1.metadata, 1371 have ids matching ids in FIA database...so some are duplicates?
@@ -80,7 +84,14 @@ length(unique(FIA.az$id))
 
 
 
-FIA.az[duplicated(FIA.az$id),]
+dup.ids <- FIA.az[duplicated(FIA.az$id),]$id
+
+FIA.az %>% filter(id %in% dup.ids)
 
 ours.in.batch1 <- left_join(batch1.meta, FIA.az, by = c("TREE","PLOT", "SUBP", "COUNTYCD", "STATECD"))
 ours.in.batch1 <- left_join(FIA.az, batch1.meta, by = c("TREE","PLOT", "SUBP", "COUNTYCD", "STATECD"))
+
+# if STATUS is CQC then assign VERIFY to 
+
+
+

@@ -23,7 +23,7 @@ batch1.meta <- read.delim( "data/ArizonaPeriodicTreeRingMetadata-Batch1.txt", se
 
 # read in the .csv downloaded from the Evans lab google document drive as of 5/20/21
 FIA.az <- read.csv("data/FIA_meta_all - FIA_meta_all.csv")
-unique(FIA.az$SPCD)
+#unique(FIA.az$SPCD)
 #summary(FIA.az)
 
 
@@ -46,7 +46,7 @@ FIA.cross.dated <- FIA.az %>% filter(crossdated %in% "yes") %>%  summarise(n())
 
 ```
 
-As of May 20th, 2021, there are a total of `r as.numeric(tot.records)`, and `r as.numeric(FIA.cross.dated)` of these are crossdated in COFECHA. See Table 1 for the number of AZ cores crossdated by species. 
+As of June 23th, 2021, there are a total of `r as.numeric(tot.records)`, and `r as.numeric(FIA.cross.dated)` of these are crossdated in COFECHA. See Table 1 for the number of AZ cores crossdated by species. These include both cores previously sent included in the FIA dataset in "batch 1," as well as more recently measured cores. 
 
 
 
@@ -61,7 +61,7 @@ Table2
 
 
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, message = FALSE}
 # check which of these cores were not included in "batch 1"
 # join using "TREE","PLOT", "SUBP", "COUNTYCD", "STATECD"
 batch1.meta$TREE <- as.character(batch1.meta$TREE)
@@ -96,6 +96,36 @@ nFIA.cores.in.b1.spcd <- FIA.az %>% filter(id %in% batch1.meta$id) %>% group_by(
 # 2   122   873
 # 3   202   148
 
+ntrees.missing.pith.ests <- FIA.az %>%   mutate(need.pith = ifelse(PITH %in% c("n", "N") & is.na(CNT_LGTH), "yes", ifelse( PITH %in% c("") & is.na(CNT_LGTH), "maybe", "no"))) %>% filter(!id %in% batch1.meta$id)  %>% group_by(SPCD, need.pith) %>% summarise(ntrees=n())%>%ungroup() 
+
+ntrees.b1.missing.pith.ests <- FIA.az %>%   mutate(need.pith = ifelse(PITH %in% c("n", "N") & is.na(CNT_LGTH), "yes", ifelse( PITH %in% c("") & is.na(CNT_LGTH), "maybe", "no"))) %>% filter(id %in% batch1.meta$id)  %>% group_by(SPCD, need.pith) %>% summarise(ntrees=n())%>%ungroup() %>% filter(need.pith %in% c("yes", "maybe")) %>% ungroup()%>% summarise(total = sum(ntrees))
+
+FIA.az %>%   mutate(need.pith = ifelse(PITH %in% c("n", "N") & is.na(CNT_LGTH), "yes", ifelse( PITH %in% c("") & is.na(CNT_LGTH), "maybe", "no"))) %>% filter(id %in% batch1.meta$id & need.pith %in% c("yes", "maybe"))  %>% group_by(SPCD, need.pith) %>% filter(RINGCOUNT < 100) %>% summarise(n())
+
+need.piths <- FIA.az %>%   mutate(need.pith = ifelse(PITH %in% c("n", "N") & is.na(CNT_LGTH), "yes", ifelse( PITH %in% c("") & is.na(CNT_LGTH), "maybe", "no"))) %>% filter(id %in% batch1.meta$id)  %>% group_by(SPCD, need.pith)
+
+need.piths.low.ringcount<- FIA.az %>%   mutate(need.pith = ifelse(PITH %in% c("n", "N") & is.na(CNT_LGTH), "yes", ifelse( PITH %in% c("") & is.na(CNT_LGTH), "maybe", "no"))) %>% filter(id %in% batch1.meta$id & need.pith %in% c("yes", "maybe"))%>% filter(RINGCOUNT < 75)  %>% group_by(SPCD, need.pith)  %>% summarise(n())  %>% ungroup() %>% mutate(total = sum(`n()`))
+
+need.piths.high.ringcount <- FIA.az %>%   mutate(need.pith = ifelse(PITH %in% c("n", "N") & is.na(CNT_LGTH), "yes", ifelse( PITH %in% c("") & is.na(CNT_LGTH), "maybe", "no"))) %>% filter(id %in% batch1.meta$id & need.pith %in% c("yes", "maybe"))%>% filter(RINGCOUNT >= 75)  %>% group_by(SPCD, need.pith)  %>% summarise(n()) %>% ungroup() %>% mutate(total = sum(`n()`))
+
+
+# create a new datasheet for the list of piths2check
+
+trees2check.df <- FIA.az %>%   mutate(need.pith = ifelse(PITH %in% c("n", "N") & is.na(CNT_LGTH), "yes", ifelse( PITH %in% c("") & is.na(CNT_LGTH), "maybe", "no"))) %>% filter(id %in% batch1.meta$id & need.pith %in% c("yes", "maybe"))
+
+write.csv(trees2check.df, "piths2check_v1.csv", row.names = FALSE)
+
+hist(need.piths$RINGCOUNT)
+
+total.piths2check <- ntrees.missing.pith.ests %>% filter(need.pith %in% c("yes", "maybe")) %>% ungroup()%>% summarise(total = sum(ntrees))
+
+piths2check.106 <- ntrees.missing.pith.ests %>% filter(need.pith %in% c("yes", "maybe")) %>% filter(SPCD ==106) %>% ungroup()%>% summarise(total = sum(ntrees))
+
+piths2check.122 <- ntrees.missing.pith.ests %>% filter(need.pith %in% c("yes", "maybe")) %>% filter(SPCD ==122) %>% ungroup()%>% summarise(total = sum(ntrees))
+
+piths2check.202 <- ntrees.missing.pith.ests %>% filter(need.pith %in% c("yes", "maybe")) %>% filter(SPCD == 202) %>% ungroup()%>% summarise(total = sum(ntrees))
+
+
 
 # so that leaves a number of cores that are not in batch 1:
 #FIA.az %>% filter(!id %in% batch1.meta$id)%>% summarise(n())
@@ -114,8 +144,10 @@ colnames(nFIA.new.cores.spcd)[2] <- "number"
 kable(data.frame(nFIA.new.cores.spcd[,c("Species", "SPCD", "number")]) , "latex", align = c("l", "c", "c"), booktabs = TRUE,caption = "Number of new AZ FIA cores by species", digits = 3, linesep = "") %>% kable_styling(position = "center")#%>% column_spec(1:2, width = "2cm")
 ```
 ## Additional cores measured since 2017
-We compare the the FIA - cores metadata pulled from our googledrive 5/20/21 to the "Batch 1" set of cores from Arizona compiled by Justin DeRose and Stefan back in 2017. As of May 20th, 2021, there are a total of `r as.numeric(n.new.cores)` that are not in the "Batch 1" datasest, and `r as.numeric(n.FIA.xdate)` of these are crossdated in COFECHA. See Table 2 for the number of new cores by species.
+We compare the the FIA - cores metadata pulled from our googledrive 5/20/21 to the "Batch 1" set of cores from Arizona compiled by Justin DeRose and Stefan back in 2017. As of May 20th, 2021, there are a total of `r as.numeric(n.new.cores)` that are not in the "Batch 1" datasest, and `r as.numeric(n.FIA.xdate)` of these are crossdated in COFECHA. See Table 2 for the number of new cores by species. 
 
+## Additional Metadata we need to check
+Of the `r as.numeric(n.new.cores)` new cores that we will deliver to the FIA, `r as.numeric(total.piths2check)` cores need to be double checked for the pith measurements. Of these, there are `r as.numeric(piths2check.106)` PIED, `r as.numeric(piths2check.122)` PIPO,and `r as.numeric(piths2check.202)` PSME. Specifically, we need to check that the pith was not reached and/or that there were no curved rings to estimate the pith using the Duncan menthod. Of these that need to be checked, there are `r as.numeric(need.piths.low.ringcount$total[1])` with less than 75 years listed under RINGCOUNT, so it is probable that many of these cores were not close enough to estimate the pith. However, we plan to prioritize the remaining `r as.numeric(need.piths.high.ringcount$total[1])` that have greater than 75 years of RINGCOUNT to check if these piths can be estimated.
 
 
 
